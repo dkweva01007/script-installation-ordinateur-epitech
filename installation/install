@@ -31,22 +31,6 @@ function usage
 	echo
 }
 
-if test $UID -eq 0; then
-	echo ">> Ne pas lancer ce script en tant que sudo <<"
-	usage
-	exit 1
-fi
-if test -z "$login"; then
-	usage
-	exit 1
-fi
-
-function script_init
-{
-	rm -rf $dir_tmp
-	mkdir $dir_tmp
-}
-
 function line
 {
 	cols=$(tput cols)
@@ -99,34 +83,99 @@ function handle_error
 	fi
 }
 
+function get_os_type
+{
+	which zypper &> /dev/null && os="opensuse"
+	which pacman &> /dev/null && os="archlinux"
+	which yum &> /dev/null && os="fedora"
+	which apt-get &> /dev/null && os="debian"
+	which emerge &> /dev/null && os="gentoo"
+}
+
+function script_init
+{
+	os="void"
+	get_os_type
+
+	if test "$os" = "void"; then
+		line "#" $C_YELLOW
+		script_header "VOTRE DISTRIBUTION N'EST PAS SUPPORTÉE..."
+		line "#" $C_YELLOW
+		exit 42
+	fi
+
+	rm -rf $dir_tmp
+	mkdir $dir_tmp
+}
+
 function sys_upgrade
 {
 	if test $fake -eq 1; then
 		echo "Upgrade system"
 		return
 	fi
-	#TODO: handle other OS
-	sudo apt-get update
-	handle_error $?
-	sudo apt-get upgrade
+	case "$os" in
+		opensuse)
+			sudo zypper update
+			;;
+		archlinux)
+			sudo pacman -Syu
+			;;
+		fedora)
+			sudo yum update
+			;;
+		debian)
+			sudo apt-get update; sudo apt-get upgrade
+			;;
+		gentoo)
+			sudo emerge -u world
+			;;
+	esac
 	handle_error $?
 }
 
 function sys_install
 {
+	package_name=$1
+
+	function get_cmd_install
+	{
+		case "$os" in
+			opensuse)
+				echo "zypper install"
+				;;
+			archlinux)
+				echo "pacman -S"
+				;;
+			fedora)
+				echo "yum install"
+				;;
+			debian)
+				echo "apt-get install"
+				;;
+			gentoo)
+				echo "emerge"
+				;;
+		esac
+	}
+
+	if test -z "$cmd_install"; then
+		cmd_install=$(get_cmd_install)
+	fi
+
 	if test $fake -eq 1; then
-		echo "Installing "$1
+		echo "Installing" $package_name "(command:" $cmd_install $package_name ")"
 		return
 	fi
-	#TODO: handle other OS
-	sudo apt-get install $1
+
+	sudo $cmd_install $package_name
 	handle_error $?
 }
 
 function script_install
 {
 	if test $fake -eq 1; then
-		echo "Installing "$1
+		echo "Installing" $1 "(script_install)"
 		return
 	fi
 	sudo cp $files/$1 /usr/bin/$1
@@ -139,7 +188,7 @@ function setup_emacs
 {
 	if test $fake -eq 1; then
 		echo "Setup emacs"
-		#return
+		return
 	fi
 	emacs_tmp=$dir_tmp/.emacs.d
 
@@ -156,6 +205,16 @@ function setup_emacs
 	chmod +rw /home/$USER/.emacs.d/*
 }
 
+if test $UID -eq 0; then
+	echo ">> Ne pas lancer ce script en tant que sudo <<"
+	usage
+	exit 1
+fi
+if test -z "$login"; then
+	usage
+	exit 1
+fi
+
 script_init
 
 script_header "INSTALLATION DE NS_AUTH"
@@ -164,7 +223,7 @@ script_install ns_auth
 script_header "INSTALLATION DE BLIH"
 script_install blih
 
-script_header "MISE À JOUR DES SOURCES ET DU SYSTÈME"
+script_header "MISE À JOUR DES PAQUETS DU SYSTÈME"
 sys_upgrade
 
 script_header "INSTALLATION DE EMACS ET DU SYSTÈME DE HEADERS EPITECH"
