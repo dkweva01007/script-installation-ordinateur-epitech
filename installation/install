@@ -87,7 +87,7 @@ function get_os_type
 {
 	which zypper &> /dev/null && os="opensuse"
 	which pacman &> /dev/null && os="archlinux"
-	which yum &> /dev/null && os="fedora"
+	which dnf &> /dev/null && os="fedora"
 	which apt-get &> /dev/null && os="debian"
 	which emerge &> /dev/null && os="gentoo"
 }
@@ -122,7 +122,7 @@ function sys_upgrade
 			sudo pacman -Syu
 			;;
 		fedora)
-			sudo yum update
+			sudo dnf update
 			;;
 		debian)
 			sudo apt-get update; sudo apt-get upgrade
@@ -148,7 +148,7 @@ function sys_install
 				echo "pacman -S"
 				;;
 			fedora)
-				echo "yum install"
+				echo "dnf install"
 				;;
 			debian)
 				echo "apt-get install"
@@ -226,9 +226,15 @@ script_install blih
 script_header "MISE À JOUR DES PAQUETS DU SYSTÈME"
 sys_upgrade
 
+script_header "INSTALLATION DE PYTHON3"
+sys_install python3
+
 script_header "INSTALLATION DE EMACS ET DU SYSTÈME DE HEADERS EPITECH"
 sys_install emacs
 setup_emacs
+
+script_header "INSTALLATION DE GCC"
+sys_install gcc
 
 script_header "INSTALLATION DE BUILD-ESSENTIAL POUR LA COMPILATION"
 sys_install build-essential
